@@ -125,29 +125,28 @@ app.get('/process', authMiddleware, async (req, res) => {
             return res.status(400).send('缺少必要的配置信息');
         }
 
-        // 构建请求URL
-        const subscriptions = config.subscriptions
+        // 处理订阅地址
+        const subscriptionUrls = config.subscriptions
             .split('\n')
-            .map(s => s.trim())
-            .filter(Boolean)
-            .map(encodeURIComponent)
-            .join('\n');
+            .map(url => url.trim())
+            .filter(url => url)
+            .map(url => encodeURIComponent(url))
+            .join('%0A');
 
-        const url = `${config.backendUrl}/singbox?config=${encodeURIComponent(subscriptions)}&selectedRules=%5B%5D&customRules=%5B%5D&pin=false`;
+        // 构建请求 URL
+        let processUrl = `${config.backendUrl}?config=${subscriptionUrls}`;
 
-        // 发送请求获取配置
-        const response = await axios.get(url);
-        let configData = response.data;
-
-        // 如果有链式代理tag，添加detour
+        // 如果有链式代理标签，添加到 URL
         if (config.chainTag) {
-            if (configData.outbounds) {
-                configData.outbounds = configData.outbounds.map(outbound => ({
-                    ...outbound,
-                    detour: [config.chainTag]
-                }));
-            }
+            processUrl += `&chainTag=${encodeURIComponent(config.chainTag)}`;
         }
+
+        // 添加其他必要的参数
+        processUrl += '&selectedRules=[]&customRules=[]&pin=false';
+
+        // 发送请求
+        const response = await axios.get(processUrl);
+        const configData = response.data;
 
         // 保存处理后的配置
         const processedPath = path.join(__dirname, '../data', `${req.session.username}_processed.json`);
@@ -156,7 +155,11 @@ app.get('/process', authMiddleware, async (req, res) => {
         res.json(configData);
     } catch (error) {
         console.error('处理失败:', error);
-        res.status(500).send(error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+        }
+        res.status(500).send('处理订阅失败');
     }
 });
 
