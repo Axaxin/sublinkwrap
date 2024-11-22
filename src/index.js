@@ -162,6 +162,11 @@ app.get('/login', (req, res) => {
     }
 });
 
+// 健康检查路由
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'Service is running' });
+});
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
