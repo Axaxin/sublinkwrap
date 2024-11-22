@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   app:
-    image: ghcr.io/axaxin/sublinkwrap/sublinkwrap:latest
+    image: ghcr.io/axaxin/sublinkwrap:latest
     container_name: sublinkwrap
     restart: always
     ports:
