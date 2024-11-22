@@ -157,13 +157,17 @@ app.get('/process', authMiddleware, async (req, res) => {
 });
 
 // 测试订阅
-app.get('/testsub', authMiddleware, async (req, res) => {
+app.get('/testsub', async (req, res) => {
     try {
-        const processedPath = path.join(__dirname, '../data', `${req.session.username}_processed.json`);
+        const processedPath = path.join(__dirname, '../data', 'admin_processed.json');
         const config = await fs.readFile(processedPath, 'utf8');
         res.json(JSON.parse(config));
     } catch (error) {
-        res.status(404).send('未找到生成的配置文件');
+        console.error('获取配置失败:', error);
+        res.status(404).json({ 
+            error: '未找到配置文件',
+            message: '请先通过管理界面生成配置'
+        });
     }
 });
 
