@@ -7,16 +7,31 @@ services:
     restart: always
     environment:
       - PORT=3000
-      - GIT_BRANCH=main
+      - REDIS_URL=redis://redis:6379
+      - SESSION_SECRET=your-secret-key
+      - NODE_ENV=production
     volumes:
       - app_data:/app
+      - ./data:/app/data
     ports:
       - "3000:3000"
+    networks:
+      - app_network
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: sublinkwrap_redis
+    restart: always
+    volumes:
+      - redis_data:/data
     networks:
       - app_network
 
 volumes:
   app_data:
+  redis_data:
 
 networks:
   app_network:
