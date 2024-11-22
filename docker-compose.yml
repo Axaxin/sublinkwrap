@@ -5,12 +5,18 @@ services:
     image: ghcr.io/axaxin/sublinkwrap:latest
     container_name: sublinkwrap
     restart: always
-    ports:
-      - "3000:3000"
     environment:
       - PORT=3000
+      - GIT_BRANCH=main
+    volumes:
+      - app_data:/app
+    ports:
+      - "3000:3000"
     networks:
       - app_network
+
+volumes:
+  app_data:
 
 networks:
   app_network:
