@@ -1,34 +1,23 @@
 const express = require('express');
-const axios = require('axios');
+const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
-const session = require('express-session');
-const Redis = require('redis');
-const RedisStore = require('connect-redis').default;
-require('dotenv').config();
+const axios = require('axios');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Redis 客户端设置
-const redisClient = Redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-redisClient.connect().catch(console.error);
-
 // 会话中间件配置
-const sessionMiddleware = session({
-    store: new RedisStore({ client: redisClient }),
+app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 3600000 // 1 hour
-    }
-});
+    saveUninitialized: false
+}));
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
 
 // 认证中间件
 const authMiddleware = (req, res, next) => {
@@ -38,49 +27,30 @@ const authMiddleware = (req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
 };
 
-app.use(sessionMiddleware);
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
-
 // 健康检查端点
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Service is running' });
 });
 
 // 登录端点
-app.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        
-        if (!username || !password) {
-            return res.status(400).json({ 
-                success: false, 
-                error: '用户名和密码不能为空' 
-            });
-        }
-
-        if (username === 'admin' && password === 'password') {
-            req.session.authenticated = true;
-            req.session.username = username;
-            await new Promise((resolve, reject) => {
-                req.session.save((err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-            res.json({ success: true });
-        } else {
-            res.status(401).json({ 
-                success: false, 
-                error: '用户名或密码错误' 
-            });
-        }
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ 
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+        return res.status(400).json({ 
             success: false, 
-            error: '登录失败，请重试' 
+            error: '用户名和密码不能为空' 
+        });
+    }
+
+    if (username === 'admin' && password === 'password') {
+        req.session.authenticated = true;
+        req.session.username = username;
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ 
+            success: false, 
+            error: '用户名或密码错误' 
         });
     }
 });
@@ -89,7 +59,7 @@ app.post('/login', async (req, res) => {
 app.get('/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) {
-            res.status(500).json({ error: 'Failed to logout' });
+            res.status(500).json({ error: '登出失败' });
         } else {
             res.json({ success: true });
         }

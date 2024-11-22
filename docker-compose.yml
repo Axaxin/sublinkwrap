@@ -7,34 +7,12 @@ services:
     restart: always
     environment:
       - PORT=3000
-      - REDIS_URL=redis://redis:6379
-      - SESSION_SECRET=your-secret-key
       - NODE_ENV=production
+      - SESSION_SECRET=your-secret-key
     volumes:
-      - app_data:/app
       - ./data:/app/data
     ports:
       - "3000:3000"
-    networks:
-      - app_network
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:alpine
-    container_name: sublinkwrap_redis
-    restart: always
-    command: redis-server /usr/local/etc/redis/redis.conf
-    volumes:
-      - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
-    networks:
-      - app_network
-
-networks:
-  app_network:
-    driver: bridge
 
 volumes:
   app_data:
-  redis_data:
