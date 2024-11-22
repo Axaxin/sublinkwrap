@@ -83,33 +83,65 @@
             align-items: center;
             margin-bottom: 20px;
         }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .main-content {
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>订阅配置</h1>
-            <button onclick="logout()" class="danger">退出登录</button>
+    <div id="loading" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    <div id="main-content" class="main-content">
+        <div class="container">
+            <div class="header">
+                <h1>订阅配置</h1>
+                <button onclick="logout()" class="danger">退出登录</button>
+            </div>
+            <form id="configForm">
+                <div class="form-group">
+                    <label for="subscriptions">订阅地址或节点（每行一个）</label>
+                    <textarea id="subscriptions" name="subscriptions" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="chainTag">链式代理Tag（可选）</label>
+                    <input type="text" id="chainTag" name="chainTag">
+                </div>
+                <div class="form-group">
+                    <label for="backendUrl">后端服务</label>
+                    <input type="text" id="backendUrl" name="backendUrl" required>
+                </div>
+                <div class="button-group">
+                    <button type="button" onclick="saveConfig()" class="primary">保存配置</button>
+                    <button type="button" onclick="generateConfig()" class="secondary">生成配置</button>
+                </div>
+            </form>
+            <div id="status" class="status"></div>
         </div>
-        <form id="configForm">
-            <div class="form-group">
-                <label for="subscriptions">订阅地址或节点（每行一个）</label>
-                <textarea id="subscriptions" name="subscriptions" required></textarea>
-            </div>
-            <div class="form-group">
-                <label for="chainTag">链式代理Tag（可选）</label>
-                <input type="text" id="chainTag" name="chainTag">
-            </div>
-            <div class="form-group">
-                <label for="backendUrl">后端服务</label>
-                <input type="text" id="backendUrl" name="backendUrl" required>
-            </div>
-            <div class="button-group">
-                <button type="button" onclick="saveConfig()" class="primary">保存配置</button>
-                <button type="button" onclick="generateConfig()" class="secondary">生成配置</button>
-            </div>
-        </form>
-        <div id="status" class="status"></div>
     </div>
 
     <script>
@@ -119,17 +151,24 @@
                 const response = await fetch('/check-auth');
                 if (!response.ok) {
                     window.location.href = '/login';
+                    return false;
                 }
+                return true;
             } catch (error) {
                 console.error('Auth check failed:', error);
                 window.location.href = '/login';
+                return false;
             }
         }
 
         // 页面加载时检查登录并加载配置
         window.onload = async () => {
-            await checkAuth();
-            loadConfig();
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                await loadConfig();
+            }
         };
 
         // 加载保存的配置

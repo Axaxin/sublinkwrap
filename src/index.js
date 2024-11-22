@@ -17,58 +17,90 @@ const redisClient = Redis.createClient({
 });
 redisClient.connect().catch(console.error);
 
-// Session 中间件设置
-app.use(session({
+// 会话中间件配置
+const sessionMiddleware = session({
     store: new RedisStore({ client: redisClient }),
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { 
+    cookie: {
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 3600000 // 1小时
+        httpOnly: true,
+        maxAge: 3600000 // 1 hour
     }
-}));
+});
 
+// 认证中间件
+const authMiddleware = (req, res, next) => {
+    if (req.session && req.session.authenticated) {
+        return next();
+    }
+    res.status(401).json({ error: 'Unauthorized' });
+};
+
+app.use(sessionMiddleware);
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 用户认证中间件
-const auth = (req, res, next) => {
-    if (req.session.user) {
-        next();
-    } else {
-        res.status(401).send('未登录');
-    }
-};
+// 健康检查端点
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'Service is running' });
+});
 
-// 登录路由
-app.post('/login', async (req, res) => {
+// 登录端点
+app.post('/login', (req, res) => {
     const { username, password } = req.body;
-    // 这里应该使用环境变量或配置文件存储用户信息
     if (username === 'admin' && password === 'password') {
-        req.session.user = username;
-        res.sendStatus(200);
+        req.session.authenticated = true;
+        req.session.username = username;
+        res.json({ success: true });
     } else {
-        res.status(401).send('用户名或密码错误');
+        res.status(401).json({ error: 'Invalid credentials' });
     }
 });
 
-// 检查登录状态
-app.get('/check-auth', auth, (req, res) => {
-    res.sendStatus(200);
+// 登出端点
+app.get('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            res.status(500).json({ error: 'Failed to logout' });
+        } else {
+            res.json({ success: true });
+        }
+    });
 });
 
-// 退出登录
-app.post('/logout', (req, res) => {
-    req.session.destroy();
-    res.sendStatus(200);
+// 认证检查端点
+app.get('/check-auth', (req, res) => {
+    if (req.session && req.session.authenticated) {
+        res.json({ authenticated: true, username: req.session.username });
+    } else {
+        res.status(401).json({ authenticated: false });
+    }
+});
+
+// 静态文件路由
+app.get('/', (req, res) => {
+    if (!req.session || !req.session.authenticated) {
+        res.redirect('/login');
+    } else {
+        res.sendFile(path.join(__dirname, '../public/index.html'));
+    }
+});
+
+app.get('/login', (req, res) => {
+    if (req.session && req.session.authenticated) {
+        res.redirect('/');
+    } else {
+        res.sendFile(path.join(__dirname, '../public/login.html'));
+    }
 });
 
 // 获取用户配置
-app.get('/load-config', auth, async (req, res) => {
+app.get('/load-config', authMiddleware, async (req, res) => {
     try {
-        const configPath = path.join(__dirname, '../data', `${req.session.user}.json`);
+        const configPath = path.join(__dirname, '../data', `${req.session.username}.json`);
         const config = await fs.readFile(configPath, 'utf8').catch(() => '{}');
         res.json(JSON.parse(config));
     } catch (error) {
@@ -77,9 +109,9 @@ app.get('/load-config', auth, async (req, res) => {
 });
 
 // 保存用户配置
-app.post('/save-config', auth, async (req, res) => {
+app.post('/save-config', authMiddleware, async (req, res) => {
     try {
-        const configPath = path.join(__dirname, '../data', `${req.session.user}.json`);
+        const configPath = path.join(__dirname, '../data', `${req.session.username}.json`);
         await fs.writeFile(configPath, JSON.stringify(req.body, null, 2));
         res.sendStatus(200);
     } catch (error) {
@@ -88,10 +120,10 @@ app.post('/save-config', auth, async (req, res) => {
 });
 
 // 处理订阅
-app.get('/process', auth, async (req, res) => {
+app.get('/process', authMiddleware, async (req, res) => {
     try {
         // 读取用户配置
-        const configPath = path.join(__dirname, '../data', `${req.session.user}.json`);
+        const configPath = path.join(__dirname, '../data', `${req.session.username}.json`);
         const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
         if (!config.backendUrl || !config.subscriptions) {
@@ -123,7 +155,7 @@ app.get('/process', auth, async (req, res) => {
         }
 
         // 保存处理后的配置
-        const processedPath = path.join(__dirname, '../data', `${req.session.user}_processed.json`);
+        const processedPath = path.join(__dirname, '../data', `${req.session.username}_processed.json`);
         await fs.writeFile(processedPath, JSON.stringify(configData, null, 2));
 
         res.json(configData);
@@ -134,37 +166,14 @@ app.get('/process', auth, async (req, res) => {
 });
 
 // 测试订阅
-app.get('/testsub', auth, async (req, res) => {
+app.get('/testsub', authMiddleware, async (req, res) => {
     try {
-        const processedPath = path.join(__dirname, '../data', `${req.session.user}_processed.json`);
+        const processedPath = path.join(__dirname, '../data', `${req.session.username}_processed.json`);
         const config = await fs.readFile(processedPath, 'utf8');
         res.json(JSON.parse(config));
     } catch (error) {
         res.status(404).send('未找到生成的配置文件');
     }
-});
-
-// 主页路由
-app.get('/', (req, res) => {
-    if (req.session.user) {
-        res.sendFile(path.join(__dirname, '../public/index.html'));
-    } else {
-        res.redirect('/login');
-    }
-});
-
-// 登录页面路由
-app.get('/login', (req, res) => {
-    if (req.session.user) {
-        res.redirect('/');
-    } else {
-        res.sendFile(path.join(__dirname, '../public/login.html'));
-    }
-});
-
-// 健康检查路由
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Service is running' });
 });
 
 app.listen(port, () => {
