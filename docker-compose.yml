@@ -24,15 +24,20 @@ services:
     image: redis:alpine
     container_name: sublinkwrap_redis
     restart: always
+    command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    sysctls:
+      - net.core.somaxconn=511
+      - vm.overcommit_memory=1
     networks:
       - app_network
-
-volumes:
-  app_data:
-  redis_data:
 
 networks:
   app_network:
     driver: bridge
+
+volumes:
+  app_data:
+  redis_data:
