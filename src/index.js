@@ -133,16 +133,9 @@ app.get('/process', authMiddleware, async (req, res) => {
             .map(url => encodeURIComponent(url))
             .join('%0A');
 
-        // 构建请求 URL
-        let processUrl = `${config.backendUrl}?config=${subscriptionUrls}`;
-
-        // 如果有链式代理标签，添加到 URL
-        if (config.chainTag) {
-            processUrl += `&chainTag=${encodeURIComponent(config.chainTag)}`;
-        }
-
-        // 添加其他必要的参数
-        processUrl += '&selectedRules=[]&customRules=[]&pin=false';
+        // 构建请求 URL，确保包含 /singbox 路径
+        const backendUrl = config.backendUrl.endsWith('/') ? config.backendUrl.slice(0, -1) : config.backendUrl;
+        const processUrl = `${backendUrl}/singbox?config=${subscriptionUrls}&selectedRules=[]&customRules=[]&pin=false`;
 
         // 发送请求
         const response = await axios.get(processUrl);
