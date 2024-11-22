@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# 确保目录存在并设置权限
+mkdir -p /app/data
+chmod -R 755 /app/public
+chmod -R 777 /app/data
+
 # 如果目录不存在则克隆，否则拉取最新代码
 if [ ! -d "/app/.git" ]; then
     echo "Cloning repository..."

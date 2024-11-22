@@ -13,10 +13,18 @@ COPY package*.json ./
 # 安装依赖
 RUN npm install --production
 
-# 复制源代码
-COPY . .
+# 创建必要的目录
+RUN mkdir -p /app/public /app/data
 
-# 复制启动脚本
+# 复制源代码和静态文件
+COPY src ./src
+COPY public ./public
+COPY scripts ./scripts
+
+# 确保数据目录存在并可写
+VOLUME ["/app/data"]
+
+# 复制启动脚本并设置权限
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
 
