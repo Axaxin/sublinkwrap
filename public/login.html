@@ -95,14 +95,16 @@
                     body: JSON.stringify({ username, password })
                 });
 
-                if (response.ok) {
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
                     window.location.href = '/';
                 } else {
-                    const data = await response.text();
-                    error.textContent = data;
+                    error.textContent = data.error || '登录失败，请检查用户名和密码';
                     error.style.display = 'block';
                 }
             } catch (err) {
+                console.error('Login error:', err);
                 error.textContent = '登录失败，请重试';
                 error.style.display = 'block';
             }

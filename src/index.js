@@ -49,14 +49,39 @@ app.get('/health', (req, res) => {
 });
 
 // 登录端点
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    if (username === 'admin' && password === 'password') {
-        req.session.authenticated = true;
-        req.session.username = username;
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ error: 'Invalid credentials' });
+app.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '用户名和密码不能为空' 
+            });
+        }
+
+        if (username === 'admin' && password === 'password') {
+            req.session.authenticated = true;
+            req.session.username = username;
+            await new Promise((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+            res.json({ success: true });
+        } else {
+            res.status(401).json({ 
+                success: false, 
+                error: '用户名或密码错误' 
+            });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '登录失败，请重试' 
+        });
     }
 });
 
